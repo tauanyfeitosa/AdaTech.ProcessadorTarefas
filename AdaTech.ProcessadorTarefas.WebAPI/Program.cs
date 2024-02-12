@@ -22,6 +22,9 @@ namespace AdaTech.ProcessadorTarefas.WebAPI
 
             builder.Services.AddControllers();
             builder.Services.AddSingleton<ProcessamentoService>();
+            builder.Services.AddSingleton<ProcessoService>();
+            builder.Services.AddSingleton<TarefaService>();
+            builder.Services.AddSingleton<ProcessoExecutorService>();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {
