@@ -59,7 +59,7 @@ namespace AdaTech.ProcessadorTarefas.WebAPI.Controllers
                 .ThenBy(processo => processo.Status == StatusProcessoTarefa.Concluido) 
                 .Select(processo => new
                 {
-                    ProcessoId = processo.Titulo.Replace("Processo ", ""),
+                    Id = int.Parse(processo.Titulo.Replace("Processo ", "")),
                     Titulo = processo.Titulo,
                     TotalTarefas = processo.Tarefas.Count,
                     TarefasProcessadas = processo.TarefasProcessadas,
@@ -84,17 +84,17 @@ namespace AdaTech.ProcessadorTarefas.WebAPI.Controllers
             return Ok("Processamento de tarefas cancelado.");
         }
 
-        //[HttpPost("cancelarById")]
-        //public ActionResult<string> CancelarProcessoById(int processoId)
-        //{
-        //    var processo = _processamentoService.ObterProcessoPorId(processoId);
-        //    if (processo == null)
-        //    {
-        //        return NotFound("Nenhum processo encontrado.");
-        //    }
-        //    _processamentoService.CancelarProcesso(processoId);
-        //    return Ok($"Processo {processoId} cancelado com sucesso.");
-        //}
+        [HttpPost("cancelarById")]
+        public ActionResult<string> CancelarProcessoById(int id)
+        {
+            var processo = _processamentoService.ObterProcessoPorId(id);
+            if (processo == null)
+            {
+                return NotFound("Nenhum processo encontrado.");
+            }
+            _processamentoService.CancelarProcesso(processo);
+            return Ok($"Processo {id} cancelado com sucesso.");
+        }
 
 
         [HttpGet("getProcessorCount")]

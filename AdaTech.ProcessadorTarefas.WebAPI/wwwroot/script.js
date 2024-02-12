@@ -128,5 +128,5 @@ document.getElementById('btnAnterior').addEventListener('click', function () {
 window.onload = async function () {
     await buscarProcessoCount();
     buscarProgresso();
-    setInterval(buscarProgresso, 3000);
+    setInterval(buscarProgresso, 1000);
 };

@@ -46,12 +46,16 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
         {
             CancellationToken cancellationToken = _cancellationTokenSource.Token;
 
-            foreach (var processo in _listaDeProcessos.Where(p => p.Status == StatusProcessoTarefa.Agendado).ToList())
+            var processosAgendados = _listaDeProcessos
+                .Where(p => p.Status == StatusProcessoTarefa.Agendado)
+                .ToList();
+
+            foreach (var processo in processosAgendados)
             {
                 if (cancellationToken.IsCancellationRequested)
                     break;
 
-                _tasks.Add(Task.Run(async () =>
+                var processoTask = Task.Run(async () =>
                 {
                     await _semaforoProcessos.WaitAsync(cancellationToken);
                     try
@@ -60,6 +64,10 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
                         {
                             processo.Status = StatusProcessoTarefa.EmAndamento;
                             await ExecutarProcesso(processo, cancellationToken);
+                            if (processo.TarefasProcessadas == processo.Tarefas.Count)
+                            {
+                                processo.Status = StatusProcessoTarefa.Concluido;
+                            }
                         }
                     } catch
                     {
@@ -69,7 +77,9 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
                     {
                         _semaforoProcessos.Release();
                     }
-                }, cancellationToken));
+                }, cancellationToken);
+
+                _tasks.Add(processoTask);
             }
 
             await Task.WhenAll(_tasks);
@@ -202,6 +212,10 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
         {
             processo.Status = StatusProcessoTarefa.Cancelado;
             processo.ResetTarefasProcessadas();
+
+            _tasks.RemoveAll(t => t.IsCanceled || t.IsCompleted);
+
+            IniciarProcessoAsync().ConfigureAwait(false);
         }
 
     }
