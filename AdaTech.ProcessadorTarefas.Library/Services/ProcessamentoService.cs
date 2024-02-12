@@ -53,7 +53,7 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
                 }
             }
 
-            if (!_processoExecutorService.ProcessoService.ObterTodosProcessos().All(p => p.Status == StatusProcessoTarefa.Cancelado))
+            if (!_processoExecutorService.ProcessoService.ObterTodosProcessos().All(p => p.Status == StatusProcessoTarefa.Cancelado || p.Status == StatusProcessoTarefa.Concluido))
             {
                 CancelarProcesso();
             }
