@@ -44,13 +44,25 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
                 {
                     processo.Status = StatusProcessoTarefa.Cancelado;
                     processo.ResetTarefasProcessadas();
+                    if (processo.CancellationTokenSource != null)
+                    {
+                        processo.CancellationTokenSource.Cancel();
+                        processo.CancellationTokenSource.Dispose();
+                        processo.CancellationTokenSource = null;
+                    }
                 }
+            }
+
+            if (!_processoExecutorService.ProcessoService.ObterTodosProcessos().All(p => p.Status == StatusProcessoTarefa.Cancelado))
+            {
+                CancelarProcesso();
             }
 
             _processoExecutorService.Tasks.Clear();
             _processoExecutorService.CancellationTokenSource.Dispose();
             _processoExecutorService.CancellationTokenSource = new CancellationTokenSource();
         }
+
 
         public async void CancelarProcesso(Processo processo)
         {
