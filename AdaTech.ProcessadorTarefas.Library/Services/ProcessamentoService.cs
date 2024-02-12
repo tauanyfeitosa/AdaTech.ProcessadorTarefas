@@ -63,13 +63,14 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
                         if (!cancellationToken.IsCancellationRequested)
                         {
                             processo.Status = StatusProcessoTarefa.EmAndamento;
-                            await ExecutarProcesso(processo, cancellationToken);
+                            await ExecutarProcesso(processo);
                             if (processo.TarefasProcessadas == processo.Tarefas.Count)
                             {
                                 processo.Status = StatusProcessoTarefa.Concluido;
                             }
                         }
-                    } catch
+                    }
+                    catch
                     {
                         return;
                     }
@@ -104,12 +105,15 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
             return _listaDeProcessos;
         }
 
-        private async Task ExecutarProcesso(Processo processo, CancellationToken cancellationToken)
+        private async Task ExecutarProcesso(Processo processo)
         {
-            if (processo.Status == StatusProcessoTarefa.Concluido || processo.Status == StatusProcessoTarefa.Cancelado || cancellationToken.IsCancellationRequested)
+            if (processo.Status == StatusProcessoTarefa.Concluido || processo.Status == StatusProcessoTarefa.Cancelado)
             {
                 return;
             }
+
+            processo.CancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = processo.CancellationTokenSource.Token;
             SemaphoreSlim semaforo = new SemaphoreSlim(5);
             List<Task> tarefasAssincronas = processo.Tarefas.ConvertAll(tarefa =>
             {
@@ -139,12 +143,18 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
             });
 
             await Task.WhenAll(tarefasAssincronas);
+
+            if (processo.Tarefas.All(t => t.Status == StatusProcessoTarefa.Concluido))
+            {
+                processo.Status = StatusProcessoTarefa.Concluido;
+                processo.CancellationTokenSource.Dispose();
+            }
         }
 
         private List<Processo> CriarListaDeProcessos()
         {
             var processos = new List<Processo>();
-            for (int i = 1; i <= 100; i++) 
+            for (int i = 1; i <= 100; i++)
             {
                 processos.Add(new Processo
                 {
@@ -204,18 +214,43 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
             }
 
             _tasks.Clear();
-            _cancellationTokenSource.Dispose(); 
+            _cancellationTokenSource.Dispose();
             _cancellationTokenSource = new CancellationTokenSource();
         }
 
         public void CancelarProcesso(Processo processo)
         {
-            processo.Status = StatusProcessoTarefa.Cancelado;
-            processo.ResetTarefasProcessadas();
+            if (processo.CancellationTokenSource != null && !processo.CancellationTokenSource.IsCancellationRequested)
+            {
+                processo.CancellationTokenSource.Cancel();
+                processo.Status = StatusProcessoTarefa.Cancelado;
+                processo.ResetTarefasProcessadas();
+                processo.CancellationTokenSource.Dispose();
+                processo.CancellationTokenSource = null;
+            }
 
-            _tasks.RemoveAll(t => t.IsCanceled || t.IsCompleted);
+            IniciarProcessosAgendados();
+        }
 
-            IniciarProcessoAsync().ConfigureAwait(false);
+        private async Task IniciarProcessosAgendados()
+        {
+            var processosAgendados = _listaDeProcessos
+                .Where(p => p.Status == StatusProcessoTarefa.Agendado)
+                .ToList();
+
+            foreach (var processo in processosAgendados)
+            {
+                await _semaforoProcessos.WaitAsync();
+                try
+                {
+                    processo.Status = StatusProcessoTarefa.EmAndamento;
+                    await ExecutarProcesso(processo);
+                }
+                finally
+                {
+                    _semaforoProcessos.Release();
+                }
+            }
         }
 
     }
