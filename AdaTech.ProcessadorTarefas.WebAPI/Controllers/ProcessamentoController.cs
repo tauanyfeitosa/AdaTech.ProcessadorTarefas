@@ -31,7 +31,7 @@ namespace AdaTech.ProcessadorTarefas.WebAPI.Controllers
                 else if (_processamentoService.ObterTodosProcessos().Any(p => p.Status == StatusProcessoTarefa.Agendado))
                 {
                     await _processamentoService.IniciarProcessoAsync();
-                    return Ok("Processamento de tarefas finalizado.");
+                    return Ok();
                 }
                 else
                 {
@@ -94,6 +94,20 @@ namespace AdaTech.ProcessadorTarefas.WebAPI.Controllers
             }
             _processamentoService.CancelarProcesso(processo);
             return Ok($"Processo {id} cancelado com sucesso.");
+        }
+
+        [HttpPost("pausar")]
+        public ActionResult<string> PausarProcessoAll()
+        {
+            _processamentoService.PausarProcesso();
+            return Ok("Processamento de tarefas pausado.");
+        }
+
+        [HttpPost("retomar")]
+        public ActionResult<string> RetomarProcessoAll()
+        {
+            _processamentoService.RetomarProcesso();
+            return Ok("Processamento de tarefas retomado.");
         }
 
 

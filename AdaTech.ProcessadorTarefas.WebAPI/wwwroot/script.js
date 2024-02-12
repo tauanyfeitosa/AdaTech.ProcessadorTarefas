@@ -60,37 +60,103 @@ async function buscarProgresso() {
             let progressoHTML;
             if (processo.status === 5) {
                 progressoHTML = `
-            <div>
-                <h3>${processo.titulo} (Cancelado)</h3>
-                <div class="progress-container">
-                    <div class="progress-bar-cancelled">
-                        Cancelado
+                <div>
+                    <h3>${processo.titulo} (Cancelado)</h3>
+                    <div class="progress-container">
+                        <div class="progress-bar-cancelled">
+                            Cancelado
+                        </div>
                     </div>
+                    <p>Processo cancelado</p>
                 </div>
-                <p>Processo cancelado</p>
-            </div>
-        `;
-            } else {
+                `;
+            } else if (processo.status == 4) {
                 progressoHTML = `
-            <div>
-                <h3>${processo.titulo}</h3>
-                <div class="progress-container">
-                    <div class="progress-bar" style="width: ${processo.porcentagemConcluida}%;">
-                        ${processo.porcentagemConcluida}%
+                <div>
+                    <h3>${processo.titulo}</h3>
+                    <div class="progress-container">
+                        <div class="progress-bar-completed">
+                            Concluído
+                        </div>
                     </div>
                 </div>
-                <p>Faltam ${processo.totalTarefas - processo.tarefasProcessadas} tasks, ${processo.tarefasProcessadas}/${processo.totalTarefas}</p>
-                <button onclick="cancelarProcesso('${processo.id}')">Cancelar Processo</button>
-            </div>
-        `;
+                `
+            } else {
+                let botaoProcesso = '';
+                let descricaoStatus = '';
+                if (processo.status === 2) {
+                    descricaoStatus = '(Em andamento)';
+                } else if (processo.status === 3) {
+                    descricaoStatus = '(Pausado)';
+                } else if (processo.status === 1) {
+                    descricaoStatus = '(Aguardando)';
+                }
+
+                progressoHTML = `
+                <div>
+                    <h3>${processo.titulo} ${descricaoStatus}</h3>
+                    <div class="progress-container">
+                        <div class="progress-bar" style="width: ${processo.porcentagemConcluida}%;">
+                            ${processo.porcentagemConcluida}%
+                        </div>
+                    </div>
+                    <p>Faltam ${processo.totalTarefas - processo.tarefasProcessadas} tasks, ${processo.tarefasProcessadas}/${processo.totalTarefas}</p>
+                    <button onclick="cancelarProcesso('${processo.id}')">Cancelar Processo</button>
+                    ${botaoProcesso}
+                </div>
+                `;
             }
             container.innerHTML += progressoHTML;
         });
         atualizarBotoesPaginacao();
+        atualizarBotaoIniciar(dadosProcessos);
     } catch (erro) {
         console.error('Falha ao buscar progresso:', erro);
     }
 }
+
+function atualizarBotaoIniciar(dadosProcessos) {
+    const btnIniciar = document.getElementById('btnIniciar');
+    const processosEmAndamento = dadosProcessos.some(processo => processo.status === 2);
+    const processosPausados = dadosProcessos.some(processo => processo.status === 3);
+
+    if (processosEmAndamento && !processosPausados) {
+        btnIniciar.disabled = true;
+        btnIniciar.textContent = 'Iniciar Processamento';
+        btnIniciar.onclick = iniciarProcessamento;
+    } else if (!processosEmAndamento && !processosPausados) {
+        btnIniciar.disabled = false;
+        btnIniciar.textContent = 'Iniciar Processamento';
+        btnIniciar.onclick = iniciarProcessamento;
+    } else if (processosPausados) {
+        btnIniciar.disabled = false;
+        btnIniciar.textContent = 'Retomar Processamento';
+        btnIniciar.onclick = retomarProcessamento;
+    }
+}
+
+async function retomarProcessamento() {
+    document.getElementById('resultadoIniciar').textContent = 'Retomando processamento...';
+    try {
+        const response = await fetch('https://localhost:7147/api/Processamento/retomar', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const resultado = await response.text();
+        document.getElementById('resultadoIniciar').textContent = resultado;
+    } catch (erro) {
+        console.error('Falha ao retomar processamento:', erro);
+        document.getElementById('resultadoIniciar').textContent = 'Falha ao retomar processamento.';
+    }
+}
+
 
 function atualizarBotoesPaginacao() {
     const btnAnterior = document.getElementById('btnAnterior');
@@ -113,7 +179,6 @@ async function cancelarProcesso(id) {
         console.error('Falha ao cancelar processo:', erro);
     }
 }
-
 
 document.getElementById('btnProximo').addEventListener('click', function () {
     paginaAtual++;

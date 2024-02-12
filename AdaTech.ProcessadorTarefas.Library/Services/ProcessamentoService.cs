@@ -57,9 +57,10 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
 
                 var processoTask = Task.Run(async () =>
                 {
-                    await _semaforoProcessos.WaitAsync(cancellationToken);
                     try
                     {
+                        await _semaforoProcessos.WaitAsync(cancellationToken);
+
                         if (!cancellationToken.IsCancellationRequested)
                         {
                             processo.Status = StatusProcessoTarefa.EmAndamento;
@@ -89,8 +90,12 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
 
         public Processo ObterProcessoPorId(int processoId)
         {
-            return _listaDeProcessos.FirstOrDefault(p =>
+            var lista = _listaDeProcessos.FirstOrDefault(p =>
             {
+                if (p == null)
+                {
+                    return false;
+                }
                 var idPart = p.Titulo.Replace("Processo ", "");
                 if (int.TryParse(idPart, out int id))
                 {
@@ -98,7 +103,17 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
                 }
                 return false;
             });
+
+
+            if (lista != null)
+            {
+
+                return lista;
+            }
+
+            throw new InvalidOperationException("A lista de processos não foi inicializada.");
         }
+
 
         public List<Processo> ObterTodosProcessos()
         {
@@ -107,7 +122,7 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
 
         private async Task ExecutarProcesso(Processo processo)
         {
-            if (processo.Status == StatusProcessoTarefa.Concluido || processo.Status == StatusProcessoTarefa.Cancelado)
+            if (processo.Status == StatusProcessoTarefa.Concluido || processo.Status == StatusProcessoTarefa.Cancelado || processo.Status == StatusProcessoTarefa.Pausado)
             {
                 return;
             }
@@ -115,7 +130,7 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
             processo.CancellationTokenSource = new CancellationTokenSource();
             CancellationToken cancellationToken = processo.CancellationTokenSource.Token;
             SemaphoreSlim semaforo = new SemaphoreSlim(5);
-            List<Task> tarefasAssincronas = processo.Tarefas.ConvertAll(tarefa =>
+            List<Task> tarefasAssincronas = processo.Tarefas.Where(t => t.Status == StatusProcessoTarefa.Agendado).ToList().ConvertAll(tarefa =>
             {
                 return Task.Run(async () =>
                 {
@@ -154,7 +169,7 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
         private List<Processo> CriarListaDeProcessos()
         {
             var processos = new List<Processo>();
-            for (int i = 1; i <= 100; i++)
+            for (int i = 1; i <= 16; i++)
             {
                 processos.Add(new Processo
                 {
@@ -168,7 +183,7 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
 
         private List<Tarefa> CriarListaDeTarefas(int numeroProcesso)
         {
-            int quantidadeTarefas = _random.Next(10, 100);
+            int quantidadeTarefas = _random.Next(20, 30);
             var tarefas = new List<Tarefa>();
             for (int i = 1; i <= quantidadeTarefas; i++)
             {
@@ -184,7 +199,7 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
                 return;
             }
 
-            int tempoProcessamento = _random.Next(3000, 60000);
+            int tempoProcessamento = _random.Next(10000, 11000);
 
             try
             {
@@ -218,7 +233,7 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
             _cancellationTokenSource = new CancellationTokenSource();
         }
 
-        public void CancelarProcesso(Processo processo)
+        public async void CancelarProcesso(Processo processo)
         {
             if (processo.CancellationTokenSource != null && !processo.CancellationTokenSource.IsCancellationRequested)
             {
@@ -229,29 +244,36 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
                 processo.CancellationTokenSource = null;
             }
 
-            IniciarProcessosAgendados();
+            await IniciarProcessoAsync();
         }
 
-        private async Task IniciarProcessosAgendados()
+        public void PausarProcesso()
         {
-            var processosAgendados = _listaDeProcessos
-                .Where(p => p.Status == StatusProcessoTarefa.Agendado)
-                .ToList();
-
-            foreach (var processo in processosAgendados)
+            foreach (var processo in _listaDeProcessos.Where(p => p.Status == StatusProcessoTarefa.EmAndamento))
             {
-                await _semaforoProcessos.WaitAsync();
-                try
-                {
-                    processo.Status = StatusProcessoTarefa.EmAndamento;
-                    await ExecutarProcesso(processo);
-                }
-                finally
-                {
-                    _semaforoProcessos.Release();
-                }
+                processo.Status = StatusProcessoTarefa.Pausado;
+                processo.CancellationTokenSource.Cancel();
+            }
+
+            _tasks.Clear();
+            _cancellationTokenSource.Dispose();
+            _cancellationTokenSource = new CancellationTokenSource();
+        }
+
+        public async void RetomarProcesso()
+        {
+            bool temProcessosParaRetomar = false;
+
+            foreach (var processo in _listaDeProcessos.Where(p => p.Status == StatusProcessoTarefa.Pausado))
+            {
+                processo.Status = StatusProcessoTarefa.Agendado;
+                temProcessosParaRetomar = true;
+            }
+
+            if (temProcessosParaRetomar)
+            {
+                await IniciarProcessoAsync();
             }
         }
-
     }
 }
