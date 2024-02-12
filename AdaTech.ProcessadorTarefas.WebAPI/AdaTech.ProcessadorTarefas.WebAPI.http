@@ -1,0 +1,6 @@
+@AdaTech.ProcessadorTarefas.WebAPI_HostAddress = http://localhost:5017
+
+GET {{AdaTech.ProcessadorTarefas.WebAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
