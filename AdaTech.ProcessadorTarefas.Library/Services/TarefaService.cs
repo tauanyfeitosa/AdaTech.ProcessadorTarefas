@@ -12,7 +12,7 @@ namespace AdaTech.ProcessadorTarefas.Library.Services
         private static Random _random = new Random();
         public List<Tarefa> CriarListaDeTarefas(int numeroProcesso)
         {
-            int quantidadeTarefas = _random.Next(20, 30);
+            int quantidadeTarefas = _random.Next(10, 100);
             var tarefas = new List<Tarefa>();
             for (int i = 1; i <= quantidadeTarefas; i++)
             {
